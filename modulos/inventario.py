@@ -71,3 +71,31 @@ def mostrar(rol):
             conn.commit(); conn.close()
             st.success("✅ Producto guardado.")
             st.rerun()
+         # ── Agregar existencias a producto ya registrado ────────────
+    st.divider()
+    st.subheader("📥 Agregar existencias a producto existente")
+    st.caption("Usa esto cuando lleguen nuevas existencias de un producto ya registrado.")
+
+    conn2 = get_connection()
+    df_todos = pd.read_sql(
+        "SELECT id, nombre, stock, ubicacion FROM PRODUCTOS ORDER BY nombre", conn2)
+
+    prod_map = {
+        f"{r['nombre']}  |  Stock actual: {r['stock']}  |  {r['ubicacion']}": r["id"]
+        for _, r in df_todos.iterrows()
+    }
+    prod_sel  = st.selectbox("Seleccionar producto", list(prod_map.keys()),
+                              key="reabastecer_sel")
+    id_reabastecer = prod_map[prod_sel]
+    cant_agregar   = st.number_input("Cantidad a agregar", min_value=1, step=1,
+                                     key="cant_reabastecer")
+
+    if st.button("📥 Agregar al inventario", key="btn_reabastecer"):
+        cursor2 = conn2.cursor()
+        cursor2.execute(
+            "UPDATE PRODUCTOS SET stock = stock + %s WHERE id = %s",
+            (cant_agregar, id_reabastecer))
+        conn2.commit()
+        conn2.close()
+        st.success(f"✅ Se agregaron {cant_agregar} unidades al inventario.")
+        st.rerun()
