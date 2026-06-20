@@ -27,3 +27,4 @@ def login():
                 st.rerun()
             else:
                 st.error("❌ Usuario o contraseña incorrectos.")
+            st.session_state["usuario_id"] = user["id"] 
