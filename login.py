@@ -4,7 +4,6 @@ from modulos.config.conexion import get_connection
 def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.image("https://via.placeholder.com/300x80/185FA5/FFFFFF?text=FERRETERIA+ELOHIM")
         st.markdown("## Iniciar sesión")
         usuario    = st.text_input("Usuario")
         contrasena = st.text_input("Contraseña", type="password")
