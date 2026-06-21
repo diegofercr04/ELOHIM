@@ -29,7 +29,7 @@ def mostrar():
     st.subheader("➕ Registrar nueva compra")
 
     df_prov = pd.read_sql("SELECT id, empresa FROM PROVEEDORES", conn)
-    df_prod = pd.read_sql("SELECT id, nombre, stock FROM PRODUCTOS", conn)
+    df_prod = pd.read_sql("SELECT id, nombre, stock FROM PRODUCTOS ORDER BY nombre", conn)
 
     if df_prov.empty:
         st.warning("⚠️ No hay proveedores registrados. Regístralos primero.")
@@ -37,18 +37,16 @@ def mostrar():
 
     c1, c2 = st.columns(2)
     with c1:
-        # Selector de proveedor
         prov_options = dict(zip(df_prov["empresa"], df_prov["id"]))
         prov_nombre  = st.selectbox("Proveedor", list(prov_options.keys()))
         id_proveedor = prov_options[prov_nombre]
 
-        # Selector de producto
         prod_options = {
-            f"{r['nombre']} (stock: {r['stock']})": r["id"]
+            f"{r['nombre']} (stock actual: {r['stock']})": r["id"]
             for _, r in df_prod.iterrows()
         }
-        prod_nombre  = st.selectbox("Producto", list(prod_options.keys()))
-        id_producto  = prod_options[prod_nombre]
+        prod_nombre = st.selectbox("Producto", list(prod_options.keys()))
+        id_producto = prod_options[prod_nombre]
 
     with c2:
         cantidad        = st.number_input("Cantidad comprada", min_value=1, step=1)
@@ -64,20 +62,14 @@ def mostrar():
         fecha_hora = datetime.combine(fecha_compra, hora_compra)
         cursor     = conn.cursor()
 
-        # 1. Insertar registro de compra
+        # Solo inserta el registro de la compra
         cursor.execute("""
             INSERT INTO COMPRAS
             (id_proveedor, id_producto, cantidad, precio_unitario, fecha)
             VALUES (%s, %s, %s, %s, %s)""",
             (id_proveedor, id_producto, cantidad, precio_unitario, fecha_hora))
 
-        # 2. Sumar automáticamente al stock del producto
-        cursor.execute("""
-            UPDATE PRODUCTOS
-            SET stock = stock + %s
-            WHERE id = %s""", (cantidad, id_producto))
-
         conn.commit()
         conn.close()
-        st.success(f"✅ Compra registrada. Se sumaron {cantidad} unidades al inventario.")
+        st.success("✅ Compra registrada correctamente.")
         st.rerun()
