@@ -4,7 +4,6 @@ from modulos import inventario, proveedores, reportes, caja, compras, ventas
 def mostrar_menu():
     rol = st.session_state.get("rol", "vendedor")
 
-    st.sidebar.image("https://via.placeholder.com/280x60/185FA5/FFFFFF?text=ELOHIM")
     st.sidebar.markdown(f"**👤 {st.session_state['usuario']}** — `{rol}`")
     st.sidebar.divider()
 
