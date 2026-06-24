@@ -26,7 +26,7 @@ def mostrar_menu():
     if st.sidebar.button("🚪 Cerrar sesión", use_container_width=True):
         st.session_state["autenticado"] = False
         st.session_state["carrito"]     = []
-        safe_rerun()
+        st.rerun()
 
     if   opcion == "🧾 Ventas":         ventas.mostrar()
     elif opcion == "🛒 Compras":        compras.mostrar()
