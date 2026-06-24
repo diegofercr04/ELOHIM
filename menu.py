@@ -1,6 +1,5 @@
 import streamlit as st
 from modulos import inventario, proveedores, reportes, caja, compras, ventas
-from modulos.config.utils import safe_rerun
 
 
 def mostrar_menu():
