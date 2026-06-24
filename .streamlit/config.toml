@@ -1,7 +1,11 @@
 # Paleta azul corporativa
 [theme]
-primaryColor      = "#185FA5"
-backgroundColor   = "#F0F4F9"
+primaryColor             = "#185FA5"
+backgroundColor          = "#F0F4F9"
 secondaryBackgroundColor = "#FFFFFF"
-textColor         = "#1A2B42"
-font              = "sans serif"
+textColor                = "#1A2B42"
+font                     = "sans serif"
+
+# Ocultar errores internos al usuario
+[client]
+showErrorDetails = false
