@@ -66,25 +66,47 @@ def mostrar():
                         _agregar_al_carrito(prod, cant_scan)
                         st.rerun()
 
-    with tab_manual:
+   with tab_manual:
         if df_prod.empty:
             st.warning("⚠️ No hay productos con stock disponible.")
         else:
-            busqueda = st.text_input("🔍 Buscar por nombre", key="busq_manual")
-            df_filtrado = df_prod[
-                df_prod["nombre"].str.contains(busqueda, case=False)
-            ] if busqueda else df_prod
+            c_cod, c_nom = st.columns([1, 2])
+            with c_cod:
+                codigo_manual = st.text_input(
+                    "🔢 Código de barras",
+                    placeholder="Digita el código...",
+                    key="cod_manual")
+            with c_nom:
+                busqueda = st.text_input(
+                    "🔍 O buscar por nombre",
+                    key="busq_manual",
+                    disabled=bool(codigo_manual))  # se desactiva si hay código
+
+            # Prioridad: código de barras sobre nombre
+            if codigo_manual:
+                df_filtrado = df_prod[df_prod["codigo_barras"] == codigo_manual]
+                if df_filtrado.empty:
+                    st.error(f"❌ Código '{codigo_manual}' no encontrado.")
+                else:
+                    st.success(f"✅ Producto encontrado: **{df_filtrado.iloc[0]['nombre']}**")
+            elif busqueda:
+                df_filtrado = df_prod[
+                    df_prod["nombre"].str.contains(busqueda, case=False)]
+            else:
+                df_filtrado = df_prod
 
             prod_map = {
                 f"{r['nombre']}  —  ${r['precio_venta']:.2f}  (stock: {r['stock']})": r
                 for _, r in df_filtrado.iterrows()
             }
             if prod_map:
-                prod_sel  = st.selectbox("Producto", list(prod_map.keys()))
+                prod_sel  = st.selectbox("Producto", list(prod_map.keys()),
+                                          key="prod_manual")
                 prod_info = prod_map[prod_sel]
                 cant_man  = st.number_input(
                     "Cantidad", min_value=1,
-                    max_value=int(prod_info["stock"]), step=1, key="cant_manual")
+                    max_value=int(prod_info["stock"]),
+                    step=1, key="cant_manual")
                 if st.button("🛒 Agregar al carrito", key="add_manual"):
                     _agregar_al_carrito(prod_info, cant_man)
                     st.rerun()
