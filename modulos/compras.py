@@ -3,11 +3,13 @@ import pandas as pd
 from datetime import datetime
 from modulos.config.conexion import get_connection
 
+
 def mostrar():
     st.title("🛒 Registro de Compras")
     conn = get_connection()
     if conn is None:
-        st.error("Error de conexión."); return
+        st.error("Error de conexión.")
+        return
 
     # ── Compras en espera ────────────────────────────────────────
     st.subheader("⏳ Compras pendientes de recibir")
@@ -32,14 +34,16 @@ def mostrar():
                 f"Total: `${row['total']:.2f}`  |  "
                 f"Fecha: `{row['fecha']}`"
             )
-            if c_btn.button("✅ Marcar como recibida",
-                            key=f"recibir_{row['id']}",
-                            use_container_width=True):
-                _confirmar_recepcion(row["id"], row["id"], row["cantidad"], conn)
+            if c_btn.button(
+                "✅ Marcar como recibida",
+                key=f"recibir_{row['id']}",
+                use_container_width=True
+            ):
+                _confirmar_recepcion(row["id"], conn)
 
     st.divider()
 
-    # ── Historial de compras completadas ────────────────────────
+    # ── Historial completadas ────────────────────────────────────
     st.subheader("📋 Historial de compras completadas")
     df_hist = pd.read_sql("""
         SELECT c.id, p.empresa AS proveedor, pr.nombre AS producto,
@@ -61,7 +65,8 @@ def mostrar():
 
     if df_prov.empty:
         st.warning("⚠️ No hay proveedores registrados. Regístralos primero.")
-        conn.close(); return
+        conn.close()
+        return
 
     c1, c2 = st.columns(2)
     with c1:
@@ -81,7 +86,7 @@ def mostrar():
         precio_unitario = st.number_input("Precio unitario ($)",
                                            min_value=0.0, format="%.2f")
         fecha_compra    = st.date_input("Fecha de compra", value=datetime.today())
-        hora_compra     = st.time_input("Hora de compra",  value=datetime.now().time())
+        hora_compra     = st.time_input("Hora de compra", value=datetime.now().time())
 
     st.info(f"💵 Total de esta compra: **${cantidad * precio_unitario:.2f}**")
 
@@ -96,26 +101,22 @@ def mostrar():
             (id_proveedor, id_producto, cantidad, precio_unitario, fecha_hora))
         conn.commit()
         conn.close()
-        st.success("✅ Compra registrada en espera. Se sumará al inventario cuando se confirme la recepción.")
+        st.success("✅ Compra registrada en espera.")
         st.rerun()
 
-def _confirmar_recepcion(id_compra, id_compra_dup, cantidad, conn):
-    # Obtener id_producto real de la compra
+
+def _confirmar_recepcion(id_compra, conn):
     cur = conn.cursor(dictionary=True)
     cur.execute("SELECT id_producto, cantidad FROM COMPRAS WHERE id = %s", (id_compra,))
     compra = cur.fetchone()
-    if not compra: return
-
-    # 1. Actualizar estado de la compra
+    if not compra:
+        return
     cur.execute(
         "UPDATE COMPRAS SET estado = 'completada' WHERE id = %s", (id_compra,))
-
-    # 2. Sumar cantidad al inventario
     cur.execute(
         "UPDATE PRODUCTOS SET stock = stock + %s WHERE id = %s",
         (compra["cantidad"], compra["id_producto"]))
-
     conn.commit()
     conn.close()
-    st.success("✅ Compra confirmada. El inventario fue actualizado.")
+    st.success("✅ Compra confirmada. Inventario actualizado.")
     st.rerun()
