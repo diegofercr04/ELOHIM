@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from modulos.config.conexion import get_connection
-from modulos.config.utils import safe_rerun
 from modulos.factura import generar_factura_pdf
 
 try:
