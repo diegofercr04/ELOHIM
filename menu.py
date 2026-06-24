@@ -8,14 +8,14 @@ def mostrar_menu():
     st.sidebar.divider()
 
     opciones_admin = [
-        "📦 Inventario",
         "🧾 Ventas",
         "🛒 Compras",
+        "📦 Inventario",
         "🚚 Proveedores",
         "📊 Reportes",
         "💰 Arqueo de Caja"
     ]
-    opciones_vendedor = ["📦 Inventario", "🧾 Ventas"]
+    opciones_vendedor = ["🧾 Ventas", "📦 Inventario"]
 
     opciones = opciones_admin if rol == "admin" else opciones_vendedor
     opcion   = st.sidebar.radio("Navegación", opciones)
