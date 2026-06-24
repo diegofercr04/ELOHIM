@@ -1,6 +1,7 @@
 import streamlit as st
 from modulos.config.conexion import get_connection
 
+
 def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -22,7 +23,7 @@ def login():
             user = cursor.fetchone()
             conn.close()
 
-            if user:  # ← todo dentro del if, nunca accede a user si es None
+            if user:
                 st.session_state["autenticado"] = True
                 st.session_state["usuario"]     = user["usuario"]
                 st.session_state["rol"]         = user["rol"]
