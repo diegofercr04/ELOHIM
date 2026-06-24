@@ -4,7 +4,8 @@ from modulos.config.conexion import get_connection
 def login():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("## Iniciar sesión")
+        st.markdown("## 🔩 Ferretería Elohim")
+        st.markdown("### Iniciar sesión")
         usuario    = st.text_input("Usuario")
         contrasena = st.text_input("Contraseña", type="password")
 
@@ -20,11 +21,12 @@ def login():
             )
             user = cursor.fetchone()
             conn.close()
-            if user:
+
+            if user:  # ← todo dentro del if, nunca accede a user si es None
                 st.session_state["autenticado"] = True
                 st.session_state["usuario"]     = user["usuario"]
                 st.session_state["rol"]         = user["rol"]
+                st.session_state["usuario_id"]  = user["id"]
                 st.rerun()
             else:
                 st.error("❌ Usuario o contraseña incorrectos.")
-            st.session_state["usuario_id"] = user["id"] 
