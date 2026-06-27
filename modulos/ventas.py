@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import pytz
 from modulos.config.conexion import get_connection
 from modulos.factura import generar_factura_pdf
+
+# Agregar esta línea justo después de los imports
+SV_TZ = pytz.timezone("America/El_Salvador")
 
 try:
     from streamlit_qrcode_scanner import qrcode_scanner
@@ -167,12 +171,13 @@ def mostrar():
         metodo_pago = c1.radio(
             "Método de pago", ["efectivo", "transferencia"], horizontal=True
         )
-        fecha_v = c2.date_input("Fecha", value=datetime.today())
-        hora_v  = c3.time_input("Hora", value=datetime.now().time())
+        ahora_sv = datetime.now(SV_TZ)
+        fecha_v  = c2.date_input("Fecha", value=ahora_sv.date())
+        hora_v   = c3.time_input("Hora",  value=ahora_sv.time().replace(tzinfo=None))
 
         if st.button("✅ Confirmar y registrar venta",
                      use_container_width=True, type="primary"):
-            fecha_hora = datetime.combine(fecha_v, hora_v)
+            fecha_hora = SV_TZ.localize(datetime.combine(fecha_v, hora_v))
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO VENTAS (fecha, total, metodo_pago, usuario_id) VALUES (%s,%s,%s,%s)",
