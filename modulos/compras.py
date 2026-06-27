@@ -2,7 +2,9 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 from modulos.config.conexion import get_connection
+import pytz
 
+SV_TZ = pytz.timezone("America/El_Salvador")
 
 def mostrar():
     st.title("🛒 Registro de Compras")
@@ -85,14 +87,15 @@ def mostrar():
         cantidad        = st.number_input("Cantidad comprada", min_value=1, step=1)
         precio_unitario = st.number_input("Precio unitario ($)",
                                            min_value=0.0, format="%.2f")
-        fecha_compra    = st.date_input("Fecha de compra", value=datetime.today())
-        hora_compra     = st.time_input("Hora de compra", value=datetime.now().time())
+        ahora_sv     = datetime.now(SV_TZ)
+        fecha_compra = st.date_input("Fecha de compra", value=ahora_sv.date())
+        hora_compra  = st.time_input("Hora de compra",  value=ahora_sv.time().replace(tzinfo=None))
 
     st.info(f"💵 Total de esta compra: **${cantidad * precio_unitario:.2f}**")
 
     if st.button("💾 Registrar compra (en espera)",
                  use_container_width=True, type="primary"):
-        fecha_hora = datetime.combine(fecha_compra, hora_compra)
+        fecha_hora = SV_TZ.localize(datetime.combine(fecha_compra, hora_compra))
         cursor     = conn.cursor()
         cursor.execute("""
             INSERT INTO COMPRAS
