@@ -17,10 +17,10 @@ def _agregar_al_carrito(prod, cantidad):
             item["cantidad"] += cantidad
             return
     st.session_state["carrito"].append({
-        "id": int(prod["id"]),
-        "nombre": prod["nombre"],
-        "precio_unitario": float(prod["precio_venta"]),
-        "cantidad": cantidad,
+        "id":              int(prod["id"]),
+        "nombre":          prod["nombre"],
+        "precio_unitario":  float(prod["precio_venta"]),
+        "cantidad":        cantidad,
     })
 
 
@@ -42,7 +42,7 @@ def mostrar():
         conn
     )
 
-    # ── Botón descarga si hay factura reciente ──────────────────
+    # ── Factura lista para descargar ────────────────────────────
     if st.session_state["ultima_factura"] is not None:
         st.success("✅ Venta registrada exitosamente.")
         st.download_button(
@@ -54,7 +54,7 @@ def mostrar():
         )
         if st.button("🆕 Nueva venta", use_container_width=True):
             st.session_state["ultima_factura"] = None
-            safe_rerun()
+            st.rerun()
         return
 
     # ── Tabs escáner / manual ───────────────────────────────────
@@ -77,15 +77,13 @@ def mostrar():
                     prod = resultado.iloc[0]
                     st.info(f"✅ Producto: **{prod['nombre']}** — ${prod['precio_venta']:.2f}")
                     cant_scan = st.number_input(
-                        "Cantidad",
-                        min_value=1,
+                        "Cantidad", min_value=1,
                         max_value=int(prod["stock"]),
-                        step=1,
-                        key="cant_scan"
+                        step=1, key="cant_scan"
                     )
                     if st.button("🛒 Agregar al carrito", key="add_scan"):
                         _agregar_al_carrito(prod, cant_scan)
-                        safe_rerun()
+                        st.rerun()
 
     with tab_manual:
         if df_prod.empty:
@@ -110,9 +108,12 @@ def mostrar():
                 if df_filtrado.empty:
                     st.error(f"❌ Código '{codigo_manual}' no encontrado.")
                 else:
-                    st.success(f"✅ Producto encontrado: **{df_filtrado.iloc[0]['nombre']}**")
+                    st.success(f"✅ Producto: **{df_filtrado.iloc[0]['nombre']}**")
+                    df_filtrado = df_filtrado
             elif busqueda:
-                df_filtrado = df_prod[df_prod["nombre"].str.contains(busqueda, case=False)]
+                df_filtrado = df_prod[
+                    df_prod["nombre"].str.contains(busqueda, case=False)
+                ]
             else:
                 df_filtrado = df_prod
 
@@ -121,18 +122,17 @@ def mostrar():
                 for _, r in df_filtrado.iterrows()
             }
             if prod_map:
-                prod_sel = st.selectbox("Producto", list(prod_map.keys()), key="prod_manual")
+                prod_sel  = st.selectbox("Producto", list(prod_map.keys()),
+                                          key="prod_manual")
                 prod_info = prod_map[prod_sel]
-                cant_man = st.number_input(
-                    "Cantidad",
-                    min_value=1,
+                cant_man  = st.number_input(
+                    "Cantidad", min_value=1,
                     max_value=int(prod_info["stock"]),
-                    step=1,
-                    key="cant_manual"
+                    step=1, key="cant_manual"
                 )
                 if st.button("🛒 Agregar al carrito", key="add_manual"):
                     _agregar_al_carrito(prod_info, cant_man)
-                    safe_rerun()
+                    st.rerun()
 
     # ── Carrito ─────────────────────────────────────────────────
     st.divider()
@@ -149,7 +149,7 @@ def mostrar():
             c_sub.write(f"**${subtotal:.2f}**")
             if c_del.button("✕", key=f"del_{i}"):
                 st.session_state["carrito"].pop(i)
-                safe_rerun()
+                st.rerun()
 
         total_venta = sum(
             x["cantidad"] * x["precio_unitario"]
@@ -159,9 +159,8 @@ def mostrar():
 
         if st.button("🗑️ Vaciar carrito"):
             st.session_state["carrito"] = []
-            safe_rerun()
+            st.rerun()
 
-        # ── Confirmar venta ──────────────────────────────────────────
         st.divider()
         st.subheader("✅ Confirmar venta")
         c1, c2, c3 = st.columns(3)
@@ -171,7 +170,8 @@ def mostrar():
         fecha_v = c2.date_input("Fecha", value=datetime.today())
         hora_v  = c3.time_input("Hora", value=datetime.now().time())
 
-        if st.button("✅ Confirmar y registrar venta", use_container_width=True, type="primary"):
+        if st.button("✅ Confirmar y registrar venta",
+                     use_container_width=True, type="primary"):
             fecha_hora = datetime.combine(fecha_v, hora_v)
             cursor = conn.cursor()
             cursor.execute(
@@ -200,9 +200,9 @@ def mostrar():
                 fecha_hora=fecha_hora,
                 vendedor=st.session_state.get("usuario", "")
             )
-            st.session_state["carrito"] = []
+            st.session_state["carrito"]        = []
             st.session_state["ultima_factura"] = pdf_bytes
-            safe_rerun()
+            st.rerun()
 
     # ── Historial ────────────────────────────────────────────────
     st.divider()
