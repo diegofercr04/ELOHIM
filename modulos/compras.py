@@ -88,85 +88,114 @@ def mostrar():
         # ── Confirmar orden completa ─────────────────────────────────
         st.divider()
         st.subheader("✅ Confirmar orden de compra")
-        prov_options  = dict(zip(df_prov["empresa"], df_prov["id"]))
-        prov_nombre   = st.selectbox("Proveedor", list(prov_options.keys()), key="cp_prov")
-        id_proveedor  = prov_options[prov_nombre]
-        ahora_sv      = datetime.now(SV_TZ)
-        c1, c2        = st.columns(2)
-        fecha_compra  = c1.date_input("Fecha", value=ahora_sv.date(), key="cp_fecha")
-        hora_compra   = c2.time_input("Hora",  value=ahora_sv.time().replace(tzinfo=None),
-                                       key="cp_hora")
+        prov_options = dict(zip(df_prov["empresa"], df_prov["id"]))
+        prov_nombre  = st.selectbox("Proveedor", list(prov_options.keys()), key="cp_prov")
+        id_proveedor = prov_options[prov_nombre]
+        ahora_sv     = datetime.now(SV_TZ)
+        c1, c2       = st.columns(2)
+        fecha_compra = c1.date_input("Fecha", value=ahora_sv.date(), key="cp_fecha")
+        hora_compra  = c2.time_input("Hora", value=ahora_sv.time().replace(tzinfo=None),
+                                      key="cp_hora")
 
         if st.button("💾 Registrar orden completa (en espera)",
                      use_container_width=True, type="primary", key="cp_confirmar"):
             fecha_hora = SV_TZ.localize(datetime.combine(fecha_compra, hora_compra))
             cursor     = conn.cursor()
+
+            # 1. Crear una sola orden
+            cursor.execute(
+                "INSERT INTO ORDENES_COMPRA (id_proveedor, fecha, estado) VALUES (%s,%s,'espera')",
+                (id_proveedor, fecha_hora))
+            id_orden = cursor.lastrowid
+
+            # 2. Insertar cada producto ligado a esa orden
             for item in st.session_state["carrito_compra"]:
                 cursor.execute("""
                     INSERT INTO COMPRAS
-                    (id_proveedor, id_producto, cantidad, precio_unitario, fecha, estado)
-                    VALUES (%s,%s,%s,%s,%s,'espera')""",
-                    (id_proveedor, item["id_producto"],
+                    (id_orden, id_proveedor, id_producto, cantidad, precio_unitario, fecha, estado)
+                    VALUES (%s,%s,%s,%s,%s,%s,'espera')""",
+                    (id_orden, id_proveedor, item["id_producto"],
                      item["cantidad"], item["precio_unit"], fecha_hora))
             conn.commit()
             conn.close()
             st.session_state["carrito_compra"] = []
-            st.success("✅ Orden registrada en espera. Confirma cuando llegue la mercadería.")
+            st.success("✅ Orden registrada en espera.")
             st.rerun()
 
-    # ── Compras en espera ────────────────────────────────────────
+    # ── Órdenes en espera (una fila por orden) ───────────────────
     st.divider()
-    st.subheader("⏳ Compras pendientes de recibir")
+    st.subheader("⏳ Órdenes pendientes de recibir")
     conn2 = get_connection()
-    df_espera = pd.read_sql("""
-        SELECT c.id, p.empresa AS proveedor, pr.nombre AS producto,
-               c.cantidad, c.precio_unitario,
-               (c.cantidad * c.precio_unitario) AS total, c.fecha
-        FROM COMPRAS c
-        JOIN PROVEEDORES p  ON c.id_proveedor = p.id
-        JOIN PRODUCTOS   pr ON c.id_producto  = pr.id
-        WHERE c.estado = 'espera'
-        ORDER BY c.fecha DESC""", conn2)
+    df_ordenes = pd.read_sql("""
+        SELECT o.id AS orden, p.empresa AS proveedor,
+               COUNT(c.id)                        AS num_productos,
+               SUM(c.cantidad * c.precio_unitario) AS total,
+               o.fecha
+        FROM ORDENES_COMPRA o
+        JOIN PROVEEDORES p ON o.id_proveedor = p.id
+        JOIN COMPRAS     c ON c.id_orden     = o.id
+        WHERE o.estado = 'espera'
+        GROUP BY o.id
+        ORDER BY o.fecha DESC""", conn2)
 
-    if df_espera.empty:
-        st.info("No hay compras pendientes.")
+    if df_ordenes.empty:
+        st.info("No hay órdenes pendientes.")
     else:
-        for _, row in df_espera.iterrows():
+        for _, row in df_ordenes.iterrows():
             c_info, c_btn = st.columns([5, 2])
             c_info.markdown(
-                f"**{row['producto']}** — {row['proveedor']}  \n"
-                f"Cantidad: `{row['cantidad']}`  |  Total: `${row['total']:.2f}`  |  Fecha: `{row['fecha']}`"
+                f"**Orden #{row['orden']}** — {row['proveedor']}  \n"
+                f"Productos: `{row['num_productos']}`  |  "
+                f"Total: `${row['total']:.2f}`  |  "
+                f"Fecha: `{row['fecha']}`"
             )
-            if c_btn.button("✅ Marcar recibida", key=f"recibir_{row['id']}",
+            if c_btn.button("✅ Marcar recibida",
+                            key=f"recibir_orden_{row['orden']}",
                             use_container_width=True):
-                _confirmar_recepcion(row["id"], conn2)
+                _confirmar_orden(int(row["orden"]), conn2)
 
-    # ── Historial completadas ────────────────────────────────────
+    # ── Historial órdenes completadas ────────────────────────────
     st.divider()
-    st.subheader("📋 Historial de compras completadas")
+    st.subheader("📋 Historial de órdenes completadas")
     conn3 = get_connection()
     df_hist = pd.read_sql("""
-        SELECT c.id, p.empresa AS proveedor, pr.nombre AS producto,
-               c.cantidad, c.precio_unitario,
-               (c.cantidad * c.precio_unitario) AS total, c.fecha
-        FROM COMPRAS c
-        JOIN PROVEEDORES p  ON c.id_proveedor = p.id
-        JOIN PRODUCTOS   pr ON c.id_producto  = pr.id
-        WHERE c.estado = 'completada'
-        ORDER BY c.fecha DESC""", conn3)
+        SELECT o.id AS orden, p.empresa AS proveedor,
+               COUNT(c.id)                        AS num_productos,
+               SUM(c.cantidad * c.precio_unitario) AS total,
+               o.fecha
+        FROM ORDENES_COMPRA o
+        JOIN PROVEEDORES p ON o.id_proveedor = p.id
+        JOIN COMPRAS     c ON c.id_orden     = o.id
+        WHERE o.estado = 'completada'
+        GROUP BY o.id
+        ORDER BY o.fecha DESC""", conn3)
     st.dataframe(df_hist, use_container_width=True)
     conn3.close()
 
 
-def _confirmar_recepcion(id_compra, conn):
+def _confirmar_orden(id_orden, conn):
+    """Marca la orden como completada y suma stock de todos sus productos."""
     cur = conn.cursor(dictionary=True)
-    cur.execute("SELECT id_producto, cantidad FROM COMPRAS WHERE id = %s", (id_compra,))
-    compra = cur.fetchone()
-    if not compra: return
-    cur.execute("UPDATE COMPRAS SET estado='completada' WHERE id=%s", (id_compra,))
-    cur.execute("UPDATE PRODUCTOS SET stock=stock+%s WHERE id=%s",
-               (compra["cantidad"], compra["id_producto"]))
+
+    # Obtener todos los productos de la orden
+    cur.execute(
+        "SELECT id_producto, cantidad FROM COMPRAS WHERE id_orden = %s",
+        (id_orden,))
+    productos = cur.fetchall()
+
+    # Actualizar stock de cada producto
+    for p in productos:
+        cur.execute(
+            "UPDATE PRODUCTOS SET stock = stock + %s WHERE id = %s",
+            (p["cantidad"], p["id_producto"]))
+
+    # Marcar orden y todos sus registros como completados
+    cur.execute(
+        "UPDATE ORDENES_COMPRA SET estado='completada' WHERE id=%s", (id_orden,))
+    cur.execute(
+        "UPDATE COMPRAS SET estado='completada' WHERE id_orden=%s", (id_orden,))
+
     conn.commit()
     conn.close()
-    st.success("✅ Recibida. Inventario actualizado.")
+    st.success("✅ Orden recibida. Stock actualizado para todos los productos.")
     st.rerun()
