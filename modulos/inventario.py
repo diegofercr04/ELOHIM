@@ -90,16 +90,14 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
     with c1:
         nombre       = st.text_input("Nombre del producto", key="add_nombre")
         categoria    = _selector_categoria(cats_bd, "add_cat", "add_cat_nueva")
-        precio_costo = st.number_input("Precio de costo ($)", min_value=0.0,
-                                        format="%.2f", key="add_costo")
         precio_venta = st.number_input("Precio de venta ($)", min_value=0.0,
                                         format="%.2f", key="add_venta")
     with c2:
-        stock         = st.number_input("Stock inicial", min_value=0,
-                                        step=1, key="add_stock")
-        stock_minimo  = st.number_input("Stock mínimo (alerta)", min_value=0,
-                                        step=1, key="add_stockmin")
-        ubicacion     = _selector_ubicacion(ubis_bd, "add_ubi", "add_ubi_nueva")
+        stock        = st.number_input("Stock inicial", min_value=0,
+                                       step=1, key="add_stock")
+        stock_minimo = st.number_input("Stock mínimo (alerta)", min_value=0,
+                                       step=1, key="add_stockmin")
+        ubicacion    = _selector_ubicacion(ubis_bd, "add_ubi", "add_ubi_nueva")
         tiene_barcode = st.checkbox("¿Tiene código de barras?", value=True, key="add_cb")
         codigo_barras = st.text_input("Código de barras", key="add_cod") if tiene_barcode else ""
 
@@ -109,11 +107,9 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO PRODUCTOS
-            (nombre, categoria, precio_costo, precio_venta,
-             stock, stock_minimo, ubicacion, codigo_barras)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-            (nombre, categoria, precio_costo, precio_venta,
-             stock, stock_minimo, ubicacion, codigo_barras))
+            (nombre, categoria, precio_venta, stock, stock_minimo, ubicacion, codigo_barras)
+            VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+            (nombre, categoria, precio_venta, stock, stock_minimo, ubicacion, codigo_barras))
         conn.commit()
         st.success("✅ Producto guardado.")
         st.rerun()
@@ -123,40 +119,34 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
     if df.empty:
         st.info("No hay productos registrados aún."); return
 
-    # Selector del producto a editar
     prod_map = {
         f"{r['nombre']} — {r['categoria']}": r
         for _, r in df.iterrows()
     }
-    prod_sel  = st.selectbox("Seleccionar producto a editar",
-                              list(prod_map.keys()), key="edit_sel")
-    prod      = prod_map[prod_sel]
+    prod_sel = st.selectbox("Seleccionar producto a editar",
+                             list(prod_map.keys()), key="edit_sel")
+    prod     = prod_map[prod_sel]
 
     st.markdown(f"Editando: **{prod['nombre']}**")
     c1, c2 = st.columns(2)
     with c1:
-        nombre_e  = st.text_input("Nombre", value=prod["nombre"], key="edit_nom")
+        nombre_e = st.text_input("Nombre", value=prod["nombre"], key="edit_nom")
 
-        # Categoría — preseleccionar la actual
         cats_disp = sorted(set(CATEGORIAS_BASE + cats_bd))
         cat_idx   = cats_disp.index(prod["categoria"]) if prod["categoria"] in cats_disp else 0
         cat_e     = st.selectbox("Categoría", cats_disp, index=cat_idx, key="edit_cat")
         if cat_e == "Otra":
             cat_e = st.text_input("Nueva categoría", key="edit_cat_nueva")
 
-        precio_costo_e = st.number_input("Precio de costo ($)",
-                                          value=float(prod["precio_costo"]),
-                                          format="%.2f", key="edit_costo")
         precio_venta_e = st.number_input("Precio de venta ($)",
                                           value=float(prod["precio_venta"]),
                                           format="%.2f", key="edit_venta")
     with c2:
-        stock_e     = st.number_input("Stock actual", value=int(prod["stock"]),
-                                      min_value=0, step=1, key="edit_stock")
-        stockmin_e  = st.number_input("Stock mínimo", value=int(prod["stock_minimo"]),
-                                      min_value=0, step=1, key="edit_stockmin")
+        stock_e    = st.number_input("Stock actual", value=int(prod["stock"]),
+                                     min_value=0, step=1, key="edit_stock")
+        stockmin_e = st.number_input("Stock mínimo", value=int(prod["stock_minimo"]),
+                                     min_value=0, step=1, key="edit_stockmin")
 
-        # Ubicación — preseleccionar la actual
         ubis_disp = sorted(set(UBICACIONES_BASE + ubis_bd))
         ubi_idx   = ubis_disp.index(prod["ubicacion"]) if prod["ubicacion"] in ubis_disp else 0
         ubi_e     = st.selectbox("Ubicación", ubis_disp, index=ubi_idx, key="edit_ubi")
@@ -173,14 +163,13 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
             UPDATE PRODUCTOS SET
                 nombre        = %s,
                 categoria     = %s,
-                precio_costo  = %s,
                 precio_venta  = %s,
                 stock         = %s,
                 stock_minimo  = %s,
                 ubicacion     = %s,
                 codigo_barras = %s
             WHERE id = %s""",
-            (nombre_e, cat_e, precio_costo_e, precio_venta_e,
+            (nombre_e, cat_e, precio_venta_e,
              stock_e, stockmin_e, ubi_e, cod_e, int(prod["id"])))
         conn.commit()
         st.success("✅ Producto actualizado correctamente.")
