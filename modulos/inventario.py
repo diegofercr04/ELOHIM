@@ -90,6 +90,8 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
     with c1:
         nombre       = st.text_input("Nombre del producto", key="add_nombre")
         categoria    = _selector_categoria(cats_bd, "add_cat", "add_cat_nueva")
+        precio_costo = st.number_input("Precio de costo ($)", min_value=0.0,
+                                        format="%.2f", key="add_costo")
         precio_venta = st.number_input("Precio de venta ($)", min_value=0.0,
                                         format="%.2f", key="add_venta")
     with c2:
@@ -100,6 +102,7 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
         ubicacion    = _selector_ubicacion(ubis_bd, "add_ubi", "add_ubi_nueva")
         tiene_barcode = st.checkbox("¿Tiene código de barras?", value=True, key="add_cb")
         codigo_barras = st.text_input("Código de barras", key="add_cod") if tiene_barcode else ""
+        
 
     if st.button("💾 Guardar producto", use_container_width=True, key="btn_add"):
         if not nombre:
@@ -107,9 +110,11 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO PRODUCTOS
-            (nombre, categoria, precio_venta, stock, stock_minimo, ubicacion, codigo_barras)
-            VALUES (%s,%s,%s,%s,%s,%s,%s)""",
-            (nombre, categoria, precio_venta, stock, stock_minimo, ubicacion, codigo_barras))
+            (nombre, categoria, precio_costo, precio_venta,
+             stock, stock_minimo, ubicacion, codigo_barras)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (nombre, categoria, precio_costo, precio_venta,
+             stock, stock_minimo, ubicacion, codigo_barras))
         conn.commit()
         st.success("✅ Producto guardado.")
         st.rerun()
@@ -138,8 +143,11 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
         if cat_e == "Otra":
             cat_e = st.text_input("Nueva categoría", key="edit_cat_nueva")
 
+        precio_costo_e = st.number_input("Precio de costo ($)",
+                                          value=float(prod["precio_costo"] or 0),
+                                          format="%.2f", key="edit_costo")
         precio_venta_e = st.number_input("Precio de venta ($)",
-                                          value=float(prod["precio_venta"]),
+                                          value=float(prod["precio_venta"] or 0),
                                           format="%.2f", key="edit_venta")
     with c2:
         stock_e    = st.number_input("Stock actual", value=int(prod["stock"]),
@@ -163,13 +171,14 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
             UPDATE PRODUCTOS SET
                 nombre        = %s,
                 categoria     = %s,
+                precio_costo  = %s,
                 precio_venta  = %s,
                 stock         = %s,
                 stock_minimo  = %s,
                 ubicacion     = %s,
                 codigo_barras = %s
             WHERE id = %s""",
-            (nombre_e, cat_e, precio_venta_e,
+            (nombre_e, cat_e, precio_costo_e, precio_venta_e,
              stock_e, stockmin_e, ubi_e, cod_e, int(prod["id"])))
         conn.commit()
         st.success("✅ Producto actualizado correctamente.")
