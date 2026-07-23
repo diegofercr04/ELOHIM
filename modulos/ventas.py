@@ -209,7 +209,7 @@ def mostrar():
             st.session_state["ultima_factura"] = pdf_bytes
             st.rerun()
 
-    # ── Historial ────────────────────────────────────────────────
+   # ── Historial ────────────────────────────────────────────────
     st.divider()
     st.subheader("📋 Últimas 50 ventas")
     conn2 = get_connection()
@@ -224,3 +224,70 @@ def mostrar():
         LIMIT 50""", conn2)
     conn2.close()
     st.dataframe(df_hist, use_container_width=True)
+
+    # ── Cancelar venta ───────────────────────────────────────────
+    st.divider()
+    st.subheader("❌ Cancelar una venta")
+    st.warning("⚠️ Al cancelar una venta se devolverá el stock de todos sus productos.")
+
+    conn_c = get_connection()
+    df_cancel = pd.read_sql("""
+        SELECT v.id, v.fecha, v.total, v.metodo_pago,
+               GROUP_CONCAT(p.nombre SEPARATOR ', ') AS productos
+        FROM VENTAS v
+        JOIN DETALLE_VENTA dv ON dv.id_venta   = v.id
+        JOIN PRODUCTOS     p  ON dv.id_producto = p.id
+        GROUP BY v.id
+        ORDER BY v.fecha DESC
+        LIMIT 50""", conn_c)
+
+    if df_cancel.empty:
+        st.info("No hay ventas registradas.")
+        conn_c.close()
+    else:
+        venta_map = {
+            f"Venta #{row['id']} — {row['fecha']} — ${row['total']:.2f} — {row['productos']}": row["id"]
+            for _, row in df_cancel.iterrows()
+        }
+        venta_sel    = st.selectbox("Seleccionar venta a cancelar",
+                                     list(venta_map.keys()), key="cancel_venta_sel")
+        id_venta_sel = venta_map[venta_sel]
+
+        confirmar_v = st.checkbox(
+            "Confirmo que quiero cancelar esta venta y devolver el stock",
+            key="confirmar_cancel_venta"
+        )
+        if confirmar_v:
+            if st.button("❌ Cancelar venta", use_container_width=True,
+                         key="btn_cancel_venta"):
+                _cancelar_venta(id_venta_sel, conn_c)
+        conn_c.close()
+
+
+# ── Función fuera de mostrar() ───────────────────────────────
+def _cancelar_venta(id_venta, conn):
+    """Devuelve el stock y elimina la venta con todo su detalle."""
+    cur = conn.cursor(dictionary=True)
+
+    # 1. Obtener todos los productos de la venta
+    cur.execute(
+        "SELECT id_producto, cantidad FROM DETALLE_VENTA WHERE id_venta = %s",
+        (id_venta,)
+    )
+    items = cur.fetchall()
+
+    # 2. Devolver stock de cada producto
+    for item in items:
+        cur.execute(
+            "UPDATE PRODUCTOS SET stock = stock + %s WHERE id = %s",
+            (item["cantidad"], item["id_producto"])
+        )
+
+    # 3. Eliminar detalle y luego la venta
+    cur.execute("DELETE FROM DETALLE_VENTA WHERE id_venta = %s", (id_venta,))
+    cur.execute("DELETE FROM VENTAS WHERE id = %s", (id_venta,))
+
+    conn.commit()
+    conn.close()
+    st.success("✅ Venta cancelada. El stock fue devuelto al inventario.")
+    st.rerun()
