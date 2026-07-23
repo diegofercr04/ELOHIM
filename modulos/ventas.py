@@ -15,15 +15,20 @@ except ImportError:
     SCANNER_DISPONIBLE = False
 
 
-def _agregar_al_carrito(prod, cantidad):
+def _agregar_al_carrito(prod, cantidad, descuento_pct=0):
+    precio_original = float(prod["precio_venta"])
+    precio_con_desc = precio_original * (1 - descuento_pct / 100)
+
     for item in st.session_state["carrito"]:
-        if item["id"] == int(prod["id"]):
+        if item["id"] == int(prod["id"]) and item["descuento_pct"] == descuento_pct:
             item["cantidad"] += cantidad
             return
     st.session_state["carrito"].append({
         "id":              int(prod["id"]),
         "nombre":          prod["nombre"],
-        "precio_unitario":  float(prod["precio_venta"]),
+        "precio_original": precio_original,
+        "precio_unitario": precio_con_desc,   # precio ya con descuento
+        "descuento_pct":   descuento_pct,
         "cantidad":        cantidad,
     })
 
@@ -134,9 +139,42 @@ def mostrar():
                     max_value=int(prod_info["stock"]),
                     step=1, key="cant_manual"
                 )
-                if st.button("🛒 Agregar al carrito", key="add_manual"):
-                    _agregar_al_carrito(prod_info, cant_man)
-                    st.rerun()
+                 descuento_item = st.number_input(
+                "% Descuento (0 = sin descuento)",
+                min_value=0, max_value=100,
+                step=1, value=0,
+                key="desc_manual"
+            )
+
+            # Mostrar precio resultante en tiempo real
+            precio_base = float(prod_info["precio_venta"])
+            if descuento_item > 0:
+                precio_final = precio_base * (1 - descuento_item / 100)
+                st.info(
+                    f"Precio normal: ~~${precio_base:.2f}~~  →  "
+                    f"Con {descuento_item}% desc: **${precio_final:.2f}**"
+                )
+
+            if st.button("🛒 Agregar al carrito", key="add_manual"):
+                _agregar_al_carrito(prod_info, cant_man, descuento_item)
+                st.rerun()
+
+# ── En tab_scan, mismo patrón ───────────────────────────────────
+                    descuento_scan = st.number_input(
+                        "% Descuento (0 = sin descuento)",
+                        min_value=0, max_value=100,
+                        step=1, value=0,
+                        key="desc_scan"
+                    )
+                    if descuento_scan > 0:
+                        precio_final_s = float(prod["precio_venta"]) * (1 - descuento_scan / 100)
+                        st.info(
+                            f"Precio normal: ~~${float(prod['precio_venta']):.2f}~~  →  "
+                            f"Con {descuento_scan}% desc: **${precio_final_s:.2f}**"
+                        )
+                    if st.button("🛒 Agregar al carrito", key="add_scan"):
+                        _agregar_al_carrito(prod, cant_scan, descuento_scan)
+                        st.rerun()
 
     # ── Carrito ─────────────────────────────────────────────────
     st.divider()
@@ -146,15 +184,27 @@ def mostrar():
         st.info("El carrito está vacío.")
     else:
         for i, item in enumerate(st.session_state["carrito"]):
-            subtotal = item["cantidad"] * item["precio_unitario"]
-            c_nom, c_qty, c_sub, c_del = st.columns([4, 2, 2, 1])
+            subtotal_item = item["cantidad"] * item["precio_unitario"]
+            c_nom, c_qty, c_sub, c_del = st.columns([4, 3, 2, 1])
+
             c_nom.write(item["nombre"])
-            c_qty.write(f"{item['cantidad']} × ${item['precio_unitario']:.2f}")
-            c_sub.write(f"**${subtotal:.2f}**")
+
+            # Mostrar precio con descuento si aplica
+            if item["descuento_pct"] > 0:
+                c_qty.markdown(
+                    f"{item['cantidad']} × ~~${item['precio_original']:.2f}~~ "
+                    f"**${item['precio_unitario']:.2f}** (-{item['descuento_pct']}%)"
+                )
+            else:
+                c_qty.write(f"{item['cantidad']} × ${item['precio_unitario']:.2f}")
+
+            c_sub.write(f"**${subtotal_item:.2f}**")
+
             if c_del.button("✕", key=f"del_{i}"):
                 st.session_state["carrito"].pop(i)
                 st.rerun()
 
+        # Total sumando los precios ya con descuento de cada producto
         total_venta = sum(
             x["cantidad"] * x["precio_unitario"]
             for x in st.session_state["carrito"]
@@ -165,10 +215,8 @@ def mostrar():
             st.session_state["carrito"] = []
             st.rerun()
 
-       # ── Confirmar venta ──────────────────────────────────────────
-        st.divider()
+      st.divider()
         st.subheader("✅ Confirmar venta")
-
         c1, c2, c3 = st.columns(3)
         metodo_pago = c1.radio(
             "Método de pago", ["efectivo", "transferencia"], horizontal=True
@@ -176,38 +224,20 @@ def mostrar():
         fecha_v = c2.date_input("Fecha", value=datetime.today())
         hora_v  = c3.time_input("Hora", value=datetime.now(SV_TZ).time().replace(tzinfo=None))
 
-        # ── Descuento ─────────────────────────────────────────────────
-        st.markdown("**Descuento (opcional)**")
-        cd1, cd2 = st.columns([1, 3])
-        descuento_pct = cd1.number_input(
-            "% Descuento", min_value=0, max_value=100,
-            step=1, value=0, key="descuento_pct"
+        # El total ya tiene los descuentos individuales aplicados
+        total_final = sum(
+            x["cantidad"] * x["precio_unitario"]
+            for x in st.session_state["carrito"]
         )
-
-        subtotal     = sum(x["cantidad"] * x["precio_unitario"] for x in st.session_state["carrito"])
-        monto_desc   = subtotal * (descuento_pct / 100)
-        total_final  = subtotal - monto_desc
-
-        with cd2:
-            if descuento_pct > 0:
-                st.info(
-                    f"Subtotal: **${subtotal:.2f}**  —  "
-                    f"Descuento ({descuento_pct}%): **-${monto_desc:.2f}**  —  "
-                    f"Total a cobrar: **${total_final:.2f}**"
-                )
-            else:
-                st.info(f"Total a cobrar: **${total_final:.2f}**")
+        st.success(f"💵 Total a cobrar: **${total_final:.2f}** — Pago en **{metodo_pago}**")
 
         if st.button("✅ Confirmar y registrar venta",
                      use_container_width=True, type="primary"):
             fecha_hora = SV_TZ.localize(datetime.combine(fecha_v, hora_v))
             cursor = conn.cursor()
             cursor.execute(
-                """INSERT INTO VENTAS
-                   (fecha, total, descuento, metodo_pago, usuario_id)
-                   VALUES (%s, %s, %s, %s, %s)""",
-                (fecha_hora, total_final, descuento_pct,
-                 metodo_pago, st.session_state.get("usuario_id"))
+                "INSERT INTO VENTAS (fecha, total, metodo_pago, usuario_id) VALUES (%s,%s,%s,%s)",
+                (fecha_hora, total_final, metodo_pago, st.session_state.get("usuario_id"))
             )
             id_venta = cursor.lastrowid
             items_factura = []
@@ -227,7 +257,7 @@ def mostrar():
                 id_venta    = id_venta,
                 items       = items_factura,
                 total       = total_final,
-                descuento   = descuento_pct,
+                descuento   = 0,
                 metodo_pago = metodo_pago,
                 fecha_hora  = fecha_hora,
                 vendedor    = st.session_state.get("usuario", "")
