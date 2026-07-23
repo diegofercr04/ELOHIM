@@ -165,23 +165,49 @@ def mostrar():
             st.session_state["carrito"] = []
             st.rerun()
 
+       # ── Confirmar venta ──────────────────────────────────────────
         st.divider()
         st.subheader("✅ Confirmar venta")
+
         c1, c2, c3 = st.columns(3)
         metodo_pago = c1.radio(
             "Método de pago", ["efectivo", "transferencia"], horizontal=True
         )
-        ahora_sv = datetime.now(SV_TZ)
-        fecha_v  = c2.date_input("Fecha", value=ahora_sv.date())
-        hora_v   = c3.time_input("Hora",  value=ahora_sv.time().replace(tzinfo=None))
+        fecha_v = c2.date_input("Fecha", value=datetime.today())
+        hora_v  = c3.time_input("Hora", value=datetime.now(SV_TZ).time().replace(tzinfo=None))
+
+        # ── Descuento ─────────────────────────────────────────────────
+        st.markdown("**Descuento (opcional)**")
+        cd1, cd2 = st.columns([1, 3])
+        descuento_pct = cd1.number_input(
+            "% Descuento", min_value=0, max_value=100,
+            step=1, value=0, key="descuento_pct"
+        )
+
+        subtotal     = sum(x["cantidad"] * x["precio_unitario"] for x in st.session_state["carrito"])
+        monto_desc   = subtotal * (descuento_pct / 100)
+        total_final  = subtotal - monto_desc
+
+        with cd2:
+            if descuento_pct > 0:
+                st.info(
+                    f"Subtotal: **${subtotal:.2f}**  —  "
+                    f"Descuento ({descuento_pct}%): **-${monto_desc:.2f}**  —  "
+                    f"Total a cobrar: **${total_final:.2f}**"
+                )
+            else:
+                st.info(f"Total a cobrar: **${total_final:.2f}**")
 
         if st.button("✅ Confirmar y registrar venta",
                      use_container_width=True, type="primary"):
             fecha_hora = SV_TZ.localize(datetime.combine(fecha_v, hora_v))
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO VENTAS (fecha, total, metodo_pago, usuario_id) VALUES (%s,%s,%s,%s)",
-                (fecha_hora, total_venta, metodo_pago, st.session_state.get("usuario_id"))
+                """INSERT INTO VENTAS
+                   (fecha, total, descuento, metodo_pago, usuario_id)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (fecha_hora, total_final, descuento_pct,
+                 metodo_pago, st.session_state.get("usuario_id"))
             )
             id_venta = cursor.lastrowid
             items_factura = []
@@ -198,12 +224,13 @@ def mostrar():
             conn.commit()
             conn.close()
             pdf_bytes = generar_factura_pdf(
-                id_venta=id_venta,
-                items=items_factura,
-                total=total_venta,
-                metodo_pago=metodo_pago,
-                fecha_hora=fecha_hora,
-                vendedor=st.session_state.get("usuario", "")
+                id_venta    = id_venta,
+                items       = items_factura,
+                total       = total_final,
+                descuento   = descuento_pct,
+                metodo_pago = metodo_pago,
+                fecha_hora  = fecha_hora,
+                vendedor    = st.session_state.get("usuario", "")
             )
             st.session_state["carrito"]        = []
             st.session_state["ultima_factura"] = pdf_bytes
