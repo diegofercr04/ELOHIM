@@ -125,7 +125,8 @@ def mostrar():
      # ── Órdenes en espera ────────────────────────────────────────
     st.divider()
     st.subheader("⏳ Órdenes pendientes de recibir")
-    conn2 = get_connection()
+    rol    = st.session_state.get("rol", "vendedor")
+    conn2  = get_connection()
     df_ordenes = pd.read_sql("""
         SELECT o.id AS orden, p.empresa AS proveedor,
                COUNT(c.id)                         AS num_productos,
@@ -142,7 +143,12 @@ def mostrar():
         st.info("No hay órdenes pendientes.")
     else:
         for _, row in df_ordenes.iterrows():
-            c_info, c_rec, c_can = st.columns([5, 2, 2])
+            # Columnas según rol
+            if rol == "admin":
+                c_info, c_rec, c_can = st.columns([5, 2, 2])
+            else:
+                c_info, c_rec = st.columns([5, 2])
+
             c_info.markdown(
                 f"**Orden #{row['orden']}** — {row['proveedor']}  \n"
                 f"Productos: `{row['num_productos']}`  |  "
@@ -154,10 +160,12 @@ def mostrar():
                             use_container_width=True):
                 _confirmar_orden(int(row["orden"]), conn2)
 
-            if c_can.button("❌ Cancelar orden",
-                            key=f"cancelar_orden_{row['orden']}",
-                            use_container_width=True):
-                _cancelar_orden(int(row["orden"]), conn2)
+            # Botón cancelar solo visible para admin
+            if rol == "admin":
+                if c_can.button("❌ Cancelar orden",
+                                key=f"cancelar_orden_{row['orden']}",
+                                use_container_width=True):
+                    _cancelar_orden(int(row["orden"]), conn2)
 
     # ── Historial órdenes completadas ────────────────────────────
     st.divider()
