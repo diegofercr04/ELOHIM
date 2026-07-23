@@ -128,20 +128,37 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
 
 def _form_editar(conn, df, cats_bd, ubis_bd):
     if df.empty:
-        st.info("No hay productos registrados aún."); return
+        st.info("No hay productos registrados aún.")
+        return
 
     prod_map = {
         f"{r['nombre']} — {r['categoria']}": r
         for _, r in df.iterrows()
     }
-    prod_sel = st.selectbox("Seleccionar producto a editar",
-                             list(prod_map.keys()), key="edit_sel")
-    prod     = prod_map[prod_sel]
+
+    prod_sel = st.selectbox(
+        "Seleccionar producto a editar",
+        list(prod_map.keys()),
+        key="edit_sel"
+    )
+    prod = prod_map[prod_sel]
+
+    # Detectar si cambió el producto seleccionado
+    if st.session_state.get("edit_prod_anterior") != prod_sel:
+        st.session_state["edit_prod_anterior"] = prod_sel
+        # Cargar los valores del producto recién seleccionado
+        st.session_state["edit_nom"]      = prod["nombre"]
+        st.session_state["edit_costo"]    = float(prod["precio_costo"] or 0)
+        st.session_state["edit_venta"]    = float(prod["precio_venta"] or 0)
+        st.session_state["edit_stock"]    = int(prod["stock"])
+        st.session_state["edit_stockmin"] = int(prod["stock_minimo"])
+        st.session_state["edit_cod"]      = prod["codigo_barras"] or ""
+        st.rerun()
 
     st.markdown(f"Editando: **{prod['nombre']}**")
     c1, c2 = st.columns(2)
     with c1:
-        nombre_e = st.text_input("Nombre", value=prod["nombre"], key="edit_nom")
+        nombre_e = st.text_input("Nombre", key="edit_nom")
 
         cats_disp = sorted(set(CATEGORIAS_BASE + cats_bd))
         cat_idx   = cats_disp.index(prod["categoria"]) if prod["categoria"] in cats_disp else 0
@@ -150,16 +167,16 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
             cat_e = st.text_input("Nueva categoría", key="edit_cat_nueva")
 
         precio_costo_e = st.number_input("Precio de costo ($)",
-                                          value=float(prod["precio_costo"] or 0),
-                                          format="%.2f", key="edit_costo")
+                                          min_value=0.0, format="%.2f",
+                                          key="edit_costo")
         precio_venta_e = st.number_input("Precio de venta ($)",
-                                          value=float(prod["precio_venta"] or 0),
-                                          format="%.2f", key="edit_venta")
+                                          min_value=0.0, format="%.2f",
+                                          key="edit_venta")
     with c2:
-        stock_e    = st.number_input("Stock actual", value=int(prod["stock"]),
-                                     min_value=0, step=1, key="edit_stock")
-        stockmin_e = st.number_input("Stock mínimo", value=int(prod["stock_minimo"]),
-                                     min_value=0, step=1, key="edit_stockmin")
+        stock_e    = st.number_input("Stock actual", min_value=0, step=1,
+                                     key="edit_stock")
+        stockmin_e = st.number_input("Stock mínimo", min_value=0, step=1,
+                                     key="edit_stockmin")
 
         ubis_disp = sorted(set(UBICACIONES_BASE + ubis_bd))
         ubi_idx   = ubis_disp.index(prod["ubicacion"]) if prod["ubicacion"] in ubis_disp else 0
@@ -167,8 +184,7 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
         if ubi_e == "Otra":
             ubi_e = st.text_input("Nueva ubicación", key="edit_ubi_nueva")
 
-        cod_e = st.text_input("Código de barras",
-                               value=prod["codigo_barras"] or "", key="edit_cod")
+        cod_e = st.text_input("Código de barras", key="edit_cod")
 
     if st.button("💾 Guardar cambios", use_container_width=True,
                  type="primary", key="btn_edit"):
