@@ -122,14 +122,14 @@ def mostrar():
             st.success("✅ Orden registrada en espera.")
             st.rerun()
 
-    # ── Órdenes en espera (una fila por orden) ───────────────────
+     # ── Órdenes en espera ────────────────────────────────────────
     st.divider()
     st.subheader("⏳ Órdenes pendientes de recibir")
     conn2 = get_connection()
     df_ordenes = pd.read_sql("""
         SELECT o.id AS orden, p.empresa AS proveedor,
-               COUNT(c.id)                        AS num_productos,
-               SUM(c.cantidad * c.precio_unitario) AS total,
+               COUNT(c.id)                         AS num_productos,
+               SUM(c.cantidad * c.precio_unitario)  AS total,
                o.fecha
         FROM ORDENES_COMPRA o
         JOIN PROVEEDORES p ON o.id_proveedor = p.id
@@ -142,17 +142,22 @@ def mostrar():
         st.info("No hay órdenes pendientes.")
     else:
         for _, row in df_ordenes.iterrows():
-            c_info, c_btn = st.columns([5, 2])
+            c_info, c_rec, c_can = st.columns([5, 2, 2])
             c_info.markdown(
                 f"**Orden #{row['orden']}** — {row['proveedor']}  \n"
                 f"Productos: `{row['num_productos']}`  |  "
                 f"Total: `${row['total']:.2f}`  |  "
                 f"Fecha: `{row['fecha']}`"
             )
-            if c_btn.button("✅ Marcar recibida",
+            if c_rec.button("✅ Marcar recibida",
                             key=f"recibir_orden_{row['orden']}",
                             use_container_width=True):
                 _confirmar_orden(int(row["orden"]), conn2)
+
+            if c_can.button("❌ Cancelar orden",
+                            key=f"cancelar_orden_{row['orden']}",
+                            use_container_width=True):
+                _cancelar_orden(int(row["orden"]), conn2)
 
     # ── Historial órdenes completadas ────────────────────────────
     st.divider()
@@ -198,4 +203,23 @@ def _confirmar_orden(id_orden, conn):
     conn.commit()
     conn.close()
     st.success("✅ Orden recibida. Stock actualizado para todos los productos.")
+    st.rerun()
+
+def _cancelar_orden(id_orden, conn):
+    """Elimina la orden y todos sus registros de compra. No toca el stock
+    porque la orden estaba en espera y nunca se sumó al inventario."""
+    cur = conn.cursor()
+
+    # 1. Eliminar los registros de compra de esa orden
+    cur.execute(
+        "DELETE FROM COMPRAS WHERE id_orden = %s", (id_orden,)
+    )
+    # 2. Eliminar la orden
+    cur.execute(
+        "DELETE FROM ORDENES_COMPRA WHERE id = %s", (id_orden,)
+    )
+
+    conn.commit()
+    conn.close()
+    st.success("✅ Orden cancelada correctamente.")
     st.rerun()
