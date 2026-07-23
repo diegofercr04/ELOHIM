@@ -21,7 +21,7 @@ AZUL     = colors.HexColor("#185FA5")
 AZUL_CLR = colors.HexColor("#E6F1FB")
 GRIS     = colors.HexColor("#F0F4F9")
 
-def generar_factura_pdf(id_venta, items, total, metodo_pago, fecha_hora, vendedor):
+def generar_factura_pdf(id_venta, items, total, descuento, metodo_pago, fecha_hora, vendedor):
     """
     Genera la factura como bytes PDF en memoria.
     Parámetros:
@@ -90,9 +90,16 @@ def generar_factura_pdf(id_venta, items, total, metodo_pago, fecha_hora, vendedo
             f"${subtotal:.2f}"
         ])
 
-    # Fila de total
+  # Calcular subtotal antes del descuento
+    subtotal_bruto = sum(i["cantidad"] * i["precio_unitario"] for i in items)
+    monto_desc     = subtotal_bruto * (descuento / 100) if descuento > 0 else 0
+  
+    # Reemplazar la fila de total por estas tres filas condicionales:
+    if descuento > 0:
+        filas.append(["", "", "", "Subtotal",   f"${subtotal_bruto:.2f}"])
+        filas.append(["", "", "", f"Descuento ({descuento}%)", f"-${monto_desc:.2f}"])
     filas.append(["", "", "", "TOTAL", f"${total:.2f}"])
-
+  
     tabla_prod = Table(filas, colWidths=[1*cm, 8*cm, 2.5*cm, 3*cm, 2.5*cm])
     tabla_prod.setStyle(TableStyle([
         # Encabezado azul
