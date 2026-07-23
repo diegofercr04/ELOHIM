@@ -55,8 +55,12 @@ def mostrar(rol):
 
     st.divider()
 
-    # ── Tabs: Agregar / Editar ───────────────────────────────────
-    tab_add, tab_edit = st.tabs(["➕ Agregar producto", "✏️ Editar producto"])
+     # ── Tabs: Agregar / Editar / Eliminar ───────────────────────
+    tab_add, tab_edit, tab_del = st.tabs([
+        "➕ Agregar producto",
+        "✏️ Editar producto",
+        "🗑️ Eliminar producto"
+    ])
 
     with tab_add:
         _form_agregar(conn, df, cats_bd, ubis_bd)
@@ -64,8 +68,10 @@ def mostrar(rol):
     with tab_edit:
         _form_editar(conn, df, cats_bd, ubis_bd)
 
-    conn.close()
+    with tab_del:
+        _form_eliminar(conn, df)
 
+    conn.close()
 
 def _selector_categoria(cats_bd, key_sel, key_nueva):
     """Selectbox de categoría con opción 'Otra' para crear nueva."""
@@ -183,3 +189,54 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
         conn.commit()
         st.success("✅ Producto actualizado correctamente.")
         st.rerun()
+
+def _form_eliminar(conn, df):
+    if df.empty:
+        st.info("No hay productos registrados aún.")
+        return
+
+    st.warning("⚠️ Esta acción es permanente y no se puede deshacer.")
+
+    prod_map = {
+        f"{r['nombre']} — {r['categoria']} (stock: {r['stock']})": r
+        for _, r in df.iterrows()
+    }
+    prod_sel = st.selectbox(
+        "Seleccionar producto a eliminar",
+        list(prod_map.keys()),
+        key="del_sel"
+    )
+    prod = prod_map[prod_sel]
+
+    # Mostrar datos del producto seleccionado
+    st.markdown(
+        f"**Nombre:** {prod['nombre']}  \n"
+        f"**Categoría:** {prod['categoria']}  \n"
+        f"**Precio venta:** ${prod['precio_venta']:.2f}  \n"
+        f"**Stock actual:** {prod['stock']} unidades  \n"
+        f"**Ubicación:** {prod['ubicacion']}"
+    )
+
+    # Confirmación con checkbox para evitar eliminaciones accidentales
+    confirmar = st.checkbox(
+        f"Confirmo que quiero eliminar **{prod['nombre']}** permanentemente",
+        key="del_confirmar"
+    )
+
+    if confirmar:
+        if st.button("🗑️ Eliminar producto", use_container_width=True,
+                     key="btn_eliminar"):
+            try:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "DELETE FROM PRODUCTOS WHERE id = %s",
+                    (int(prod["id"]),)
+                )
+                conn.commit()
+                st.success(f"✅ Producto '{prod['nombre']}' eliminado correctamente.")
+                st.rerun()
+            except Exception:
+                st.error(
+                    "❌ No se puede eliminar este producto porque tiene ventas o compras "
+                    "registradas. Si ya no lo vendes puedes dejar el stock en 0."
+                )
