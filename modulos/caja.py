@@ -164,4 +164,4 @@ def mostrar():
     st.dataframe(df_compras, use_container_width=True)
     st.caption(f"{num_compras} compra(s) — {num_retiros} retiro(s) en este día")
     conn4.close()
-    conn.close(
+    conn.close()
