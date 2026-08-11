@@ -97,9 +97,9 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
         nombre       = st.text_input("Nombre del producto", key="add_nombre")
         categoria    = _selector_categoria(cats_bd, "add_cat", "add_cat_nueva")
         precio_costo = st.number_input("Precio de costo ($)", min_value=0.0,
-                                        format="%.2f", key="add_costo")
+                                        format="%.4f", key="add_costo")
         precio_venta = st.number_input("Precio de venta ($)", min_value=0.0,
-                                        format="%.2f", key="add_venta")
+                                        format="%.4f", key="add_venta")
     with c2:
         stock        = st.number_input("Stock inicial", min_value=0,
                                        step=1, key="add_stock")
@@ -167,10 +167,10 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
             cat_e = st.text_input("Nueva categoría", key="edit_cat_nueva")
 
         precio_costo_e = st.number_input("Precio de costo ($)",
-                                          min_value=0.0, format="%.2f",
+                                          min_value=0.0, format="%.4f",
                                           key="edit_costo")
         precio_venta_e = st.number_input("Precio de venta ($)",
-                                          min_value=0.0, format="%.2f",
+                                          min_value=0.0, format="%.4f",
                                           key="edit_venta")
     with c2:
         stock_e    = st.number_input("Stock actual", min_value=0, step=1,
