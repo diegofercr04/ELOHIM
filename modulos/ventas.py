@@ -173,12 +173,12 @@ def mostrar():
             c_nom.write(item["nombre"])
             if item["descuento_pct"] > 0:
                 c_qty.markdown(
-                    f"{item['cantidad']} × ~~${item['precio_original']:.2f}~~ "
-                    f"**${item['precio_unitario']:.2f}** (-{item['descuento_pct']}%)"
+                    f"{item['cantidad']} × ~~${item['precio_original']:.3f}~~ "
+                    f"**${item['precio_unitario']:.3f}** (-{item['descuento_pct']}%)"
                 )
             else:
-                c_qty.write(f"{item['cantidad']} × ${item['precio_unitario']:.2f}")
-            c_sub.write(f"**${subtotal_item:.2f}**")
+                c_qty.write(f"{item['cantidad']} × ${item['precio_unitario']:.3f}")
+            c_sub.write(f"**${subtotal_item:.3f}**")
             if c_del.button("✕", key=f"del_{i}"):
                 st.session_state["carrito"].pop(i)
                 st.rerun()
@@ -187,7 +187,7 @@ def mostrar():
             x["cantidad"] * x["precio_unitario"]
             for x in st.session_state["carrito"]
         )
-        st.metric("Total", f"${total_venta:.2f}")
+        st.metric("Total", f"${total_venta:.3f}")
 
         if st.button("🗑️ Vaciar carrito"):
             st.session_state["carrito"] = []
@@ -207,7 +207,7 @@ def mostrar():
             x["cantidad"] * x["precio_unitario"]
             for x in st.session_state["carrito"]
         )
-        st.success(f"💵 Total a cobrar: **${total_final:.2f}** — Pago en **{metodo_pago}**")
+        st.success(f"💵 Total a cobrar: **${total_final:.3f}** — Pago en **{metodo_pago}**")
 
         if st.button("✅ Confirmar y registrar venta",
                      use_container_width=True, type="primary"):
