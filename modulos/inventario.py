@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
-from modulos.config.conexion import get_connection
+import io
 from datetime import datetime
+from modulos.config.conexion import get_connection
 
 CATEGORIAS_BASE = [
     "Construcción", "Fontanería", "Electricidad",
@@ -50,25 +51,22 @@ def mostrar(rol):
     st.dataframe(df_vis, use_container_width=True)
     st.caption(f"{len(df_vis)} producto(s) encontrado(s)")
 
-# ── Descargar Excel ──────────────────────────────────────────
-    import io
-        buffer = io.BytesIO()
+    # ── Descargar Excel ───────────────────────────────────────────
+    buffer = io.BytesIO()
     with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-    df_vis.to_excel(writer, index=False, sheet_name="Inventario")
-
+        df_vis.to_excel(writer, index=False, sheet_name="Inventario")
     st.download_button(
         label     = "📥 Descargar inventario en Excel",
         data      = buffer.getvalue(),
-          file_name = f"inventario_elohim_{datetime.now().strftime('%Y%m%d')}.pdf",
+        file_name = f"inventario_elohim_{datetime.now().strftime('%Y%m%d')}.xlsx",
         mime      = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    )
+
     # ── Solo admin puede agregar y editar ────────────────────────
     if rol != "admin":
         return
 
     st.divider()
-
-     # ── Tabs: Agregar / Editar / Eliminar ───────────────────────
     tab_add, tab_edit, tab_del = st.tabs([
         "➕ Agregar producto",
         "✏️ Editar producto",
@@ -77,17 +75,15 @@ def mostrar(rol):
 
     with tab_add:
         _form_agregar(conn, df, cats_bd, ubis_bd)
-
     with tab_edit:
         _form_editar(conn, df, cats_bd, ubis_bd)
-
     with tab_del:
         _form_eliminar(conn, df)
 
     conn.close()
 
+
 def _selector_categoria(cats_bd, key_sel, key_nueva):
-    """Selectbox de categoría con opción 'Otra' para crear nueva."""
     cats_disponibles = sorted(set(CATEGORIAS_BASE + cats_bd))
     cat_sel = st.selectbox("Categoría", cats_disponibles, key=key_sel)
     if cat_sel == "Otra":
@@ -96,7 +92,6 @@ def _selector_categoria(cats_bd, key_sel, key_nueva):
 
 
 def _selector_ubicacion(ubis_bd, key_sel, key_nueva):
-    """Selectbox de ubicación con opción 'Otra' para crear nueva."""
     ubis_disponibles = sorted(set(UBICACIONES_BASE + ubis_bd))
     ubi_sel = st.selectbox("Ubicación física", ubis_disponibles, key=key_sel)
     if ubi_sel == "Otra":
@@ -110,18 +105,17 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
         nombre       = st.text_input("Nombre del producto", key="add_nombre")
         categoria    = _selector_categoria(cats_bd, "add_cat", "add_cat_nueva")
         precio_costo = st.number_input("Precio de costo ($)", min_value=0.0,
-                                        format="%.4f", key="add_costo")
+                                        format="%.3f", key="add_costo")
         precio_venta = st.number_input("Precio de venta ($)", min_value=0.0,
-                                        format="%.4f", key="add_venta")
+                                        format="%.3f", key="add_venta")
     with c2:
-        stock        = st.number_input("Stock inicial", min_value=0,
-                                       step=1, key="add_stock")
-        stock_minimo = st.number_input("Stock mínimo (alerta)", min_value=0,
-                                       step=1, key="add_stockmin")
+        stock        = st.number_input("Stock inicial", min_value=0.0,
+                                       step=0.5, format="%.2f", key="add_stock")
+        stock_minimo = st.number_input("Stock mínimo (alerta)", min_value=0.0,
+                                       step=0.5, format="%.2f", key="add_stockmin")
         ubicacion    = _selector_ubicacion(ubis_bd, "add_ubi", "add_ubi_nueva")
         tiene_barcode = st.checkbox("¿Tiene código de barras?", value=True, key="add_cb")
         codigo_barras = st.text_input("Código de barras", key="add_cod") if tiene_barcode else ""
-        
 
     if st.button("💾 Guardar producto", use_container_width=True, key="btn_add"):
         if not nombre:
@@ -141,30 +135,23 @@ def _form_agregar(conn, df, cats_bd, ubis_bd):
 
 def _form_editar(conn, df, cats_bd, ubis_bd):
     if df.empty:
-        st.info("No hay productos registrados aún.")
-        return
+        st.info("No hay productos registrados aún."); return
 
     prod_map = {
         f"{r['nombre']} — {r['categoria']}": r
         for _, r in df.iterrows()
     }
+    prod_sel = st.selectbox("Seleccionar producto a editar",
+                             list(prod_map.keys()), key="edit_sel")
+    prod     = prod_map[prod_sel]
 
-    prod_sel = st.selectbox(
-        "Seleccionar producto a editar",
-        list(prod_map.keys()),
-        key="edit_sel"
-    )
-    prod = prod_map[prod_sel]
-
-    # Detectar si cambió el producto seleccionado
     if st.session_state.get("edit_prod_anterior") != prod_sel:
         st.session_state["edit_prod_anterior"] = prod_sel
-        # Cargar los valores del producto recién seleccionado
         st.session_state["edit_nom"]      = prod["nombre"]
         st.session_state["edit_costo"]    = float(prod["precio_costo"] or 0)
         st.session_state["edit_venta"]    = float(prod["precio_venta"] or 0)
-        st.session_state["edit_stock"]    = int(prod["stock"])
-        st.session_state["edit_stockmin"] = int(prod["stock_minimo"])
+        st.session_state["edit_stock"]    = float(prod["stock"])
+        st.session_state["edit_stockmin"] = float(prod["stock_minimo"])
         st.session_state["edit_cod"]      = prod["codigo_barras"] or ""
         st.rerun()
 
@@ -180,16 +167,16 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
             cat_e = st.text_input("Nueva categoría", key="edit_cat_nueva")
 
         precio_costo_e = st.number_input("Precio de costo ($)",
-                                          min_value=0.0, format="%.4f",
+                                          min_value=0.0, format="%.3f",
                                           key="edit_costo")
         precio_venta_e = st.number_input("Precio de venta ($)",
-                                          min_value=0.0, format="%.4f",
+                                          min_value=0.0, format="%.3f",
                                           key="edit_venta")
     with c2:
-        stock_e    = st.number_input("Stock actual", min_value=0, step=1,
-                                     key="edit_stock")
-        stockmin_e = st.number_input("Stock mínimo", min_value=0, step=1,
-                                     key="edit_stockmin")
+        stock_e    = st.number_input("Stock actual", min_value=0.0,
+                                     step=0.5, format="%.2f", key="edit_stock")
+        stockmin_e = st.number_input("Stock mínimo", min_value=0.0,
+                                     step=0.5, format="%.2f", key="edit_stockmin")
 
         ubis_disp = sorted(set(UBICACIONES_BASE + ubis_bd))
         ubi_idx   = ubis_disp.index(prod["ubicacion"]) if prod["ubicacion"] in ubis_disp else 0
@@ -197,7 +184,8 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
         if ubi_e == "Otra":
             ubi_e = st.text_input("Nueva ubicación", key="edit_ubi_nueva")
 
-        cod_e = st.text_input("Código de barras", key="edit_cod")
+        cod_e = st.text_input("Código de barras",
+                               value=prod["codigo_barras"] or "", key="edit_cod")
 
     if st.button("💾 Guardar cambios", use_container_width=True,
                  type="primary", key="btn_edit"):
@@ -219,10 +207,10 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
         st.success("✅ Producto actualizado correctamente.")
         st.rerun()
 
+
 def _form_eliminar(conn, df):
     if df.empty:
-        st.info("No hay productos registrados aún.")
-        return
+        st.info("No hay productos registrados aún."); return
 
     st.warning("⚠️ Esta acción es permanente y no se puede deshacer.")
 
@@ -230,42 +218,34 @@ def _form_eliminar(conn, df):
         f"{r['nombre']} — {r['categoria']} (stock: {r['stock']})": r
         for _, r in df.iterrows()
     }
-    prod_sel = st.selectbox(
-        "Seleccionar producto a eliminar",
-        list(prod_map.keys()),
-        key="del_sel"
-    )
+    prod_sel = st.selectbox("Seleccionar producto a eliminar",
+                             list(prod_map.keys()), key="del_sel")
     prod = prod_map[prod_sel]
 
-    # Mostrar datos del producto seleccionado
     st.markdown(
         f"**Nombre:** {prod['nombre']}  \n"
         f"**Categoría:** {prod['categoria']}  \n"
-        f"**Precio venta:** ${prod['precio_venta']:.2f}  \n"
-        f"**Stock actual:** {prod['stock']} unidades  \n"
+        f"**Precio venta:** ${prod['precio_venta']:.3f}  \n"
+        f"**Stock actual:** {prod['stock']}  \n"
         f"**Ubicación:** {prod['ubicacion']}"
     )
 
-    # Confirmación con checkbox para evitar eliminaciones accidentales
     confirmar = st.checkbox(
         f"Confirmo que quiero eliminar **{prod['nombre']}** permanentemente",
         key="del_confirmar"
     )
-
     if confirmar:
         if st.button("🗑️ Eliminar producto", use_container_width=True,
                      key="btn_eliminar"):
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "DELETE FROM PRODUCTOS WHERE id = %s",
-                    (int(prod["id"]),)
-                )
+                    "DELETE FROM PRODUCTOS WHERE id = %s", (int(prod["id"]),))
                 conn.commit()
-                st.success(f"✅ Producto '{prod['nombre']}' eliminado correctamente.")
+                st.success(f"✅ Producto '{prod['nombre']}' eliminado.")
                 st.rerun()
             except Exception:
                 st.error(
-                    "❌ No se puede eliminar este producto porque tiene ventas o compras "
-                    "registradas. Si ya no lo vendes puedes dejar el stock en 0."
+                    "❌ No se puede eliminar este producto porque tiene ventas o "
+                    "compras registradas. Puedes dejar el stock en 0 si ya no lo vendés."
                 )
