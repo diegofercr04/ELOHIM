@@ -9,8 +9,6 @@ def get_connection():
             user     = "ufrsewvahgrdaghy",
             password = "UxDnJbPxibZaLwBC6Xt1",
             database = "be5bmntqvmjb45dbc68h",
-            connection_timeout = 10,   # ← espera máximo 10 seg para conectar
-            autocommit         = False
         )
         return conn
     except Error:
