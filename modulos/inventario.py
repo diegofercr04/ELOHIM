@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from modulos.config.conexion import get_connection
+from datetime import datetime
 
 CATEGORIAS_BASE = [
     "Construcción", "Fontanería", "Electricidad",
@@ -49,6 +50,18 @@ def mostrar(rol):
     st.dataframe(df_vis, use_container_width=True)
     st.caption(f"{len(df_vis)} producto(s) encontrado(s)")
 
+# ── Descargar Excel ──────────────────────────────────────────
+import io
+buffer = io.BytesIO()
+with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+    df_vis.to_excel(writer, index=False, sheet_name="Inventario")
+
+st.download_button(
+    label     = "📥 Descargar inventario en Excel",
+    data      = buffer.getvalue(),
+    file_name = f"inventario_elohim_{datetime.now().strftime('%Y%m%d')}.pdf",
+    mime      = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
     # ── Solo admin puede agregar y editar ────────────────────────
     if rol != "admin":
         return
