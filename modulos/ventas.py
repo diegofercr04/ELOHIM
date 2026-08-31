@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import timezone
 import pytz
 from modulos.config.conexion import get_connection
 from modulos.factura import generar_factura_pdf
@@ -211,7 +211,7 @@ def mostrar():
 
         if st.button("✅ Confirmar y registrar venta",
                      use_container_width=True, type="primary"):
-            fecha_hora = SV_TZ.localize(datetime.combine(fecha_v, hora_v))
+            fecha_hora = datetime.combine(fecha_v, hora_v)
             cursor = conn.cursor()
             cursor.execute(
                 "INSERT INTO VENTAS (fecha, total, metodo_pago, usuario_id) VALUES (%s,%s,%s,%s)",
