@@ -99,7 +99,7 @@ def mostrar():
 
         if st.button("💾 Registrar orden completa (en espera)",
                      use_container_width=True, type="primary", key="cp_confirmar"):
-            fecha_hora = SV_TZ.localize(datetime.combine(fecha_compra, hora_compra))
+            fecha_hora = datetime.combine(fecha_v, hora_v)
             cursor     = conn.cursor()
 
             # 1. Crear una sola orden
