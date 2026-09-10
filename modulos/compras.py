@@ -94,8 +94,10 @@ def mostrar():
         ahora_sv     = datetime.now(SV_TZ)
         c1, c2       = st.columns(2)
         fecha_compra = c1.date_input("Fecha", value=ahora_sv.date(), key="cp_fecha")
-        hora_compra  = c2.time_input("Hora", value=ahora_sv.time().replace(tzinfo=None),
-                                      key="cp_hora")
+        hora_compra  = c2.time_input("Hora",  value=ahora_sv.replace(tzinfo=None).time(),
+                              key="cp_hora")
+
+        fecha_hora = datetime.combine(fecha_compra, hora_compra)
 
         if st.button("💾 Registrar orden completa (en espera)",
                      use_container_width=True, type="primary", key="cp_confirmar"):
