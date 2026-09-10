@@ -1,5 +1,3 @@
- Reemplaza todo el contenido de modulos/compras.py con este.
-modulos/compras.py — completo
 import streamlit as st
 import pandas as pd
 from datetime import datetime
