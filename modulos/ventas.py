@@ -45,7 +45,7 @@ def mostrar():
         return
 
     df_prod = pd.read_sql(
-        "SELECT id, nombre, precio_venta, stock, codigo_barras FROM PRODUCTOS WHERE stock > 0 ORDER BY nombre",
+        "SELECT id, nombre, precio_venta, stock, codigo_barras FROM PRODUCTOS WHERE stock > 0 AND activo = 1 ORDER BY nombre",
         conn
     )
 
