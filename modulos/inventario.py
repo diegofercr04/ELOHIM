@@ -207,7 +207,6 @@ def _form_editar(conn, df, cats_bd, ubis_bd):
         st.success("✅ Producto actualizado correctamente.")
         st.rerun()
 
-
 def _form_eliminar(conn, df):
     if df.empty:
         st.info("No hay productos registrados aún."); return
