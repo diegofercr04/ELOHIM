@@ -33,7 +33,7 @@ def mostrar():
         st.error("Error de conexión."); return
 
     df_prov = pd.read_sql("SELECT id, empresa FROM PROVEEDORES", conn)
-    df_prod = pd.read_sql("SELECT id, nombre, stock FROM PRODUCTOS ORDER BY nombre", conn)
+    df_prod = pd.read_sql("SELECT id, nombre, stock FROM PRODUCTOS WHERE activo = 1 ORDER BY nombre", conn)
 
     if df_prov.empty:
         st.warning("⚠️ No hay proveedores registrados.")
