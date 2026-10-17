@@ -17,7 +17,7 @@ def mostrar(rol):
     if conn is None:
         st.error("Error de conexión."); return
 
-    df = pd.read_sql("SELECT * FROM PRODUCTOS ORDER BY nombre", conn)
+    df = pd.read_sql("SELECT * FROM PRODUCTOS WHERE activo = 1 ORDER BY nombre", conn)
 
     # ── Alertas de stock mínimo ──────────────────────────────────
     bajos = df[df["stock"] <= df["stock_minimo"]]
@@ -212,14 +212,16 @@ def _form_eliminar(conn, df):
     if df.empty:
         st.info("No hay productos registrados aún."); return
 
-    st.warning("⚠️ Esta acción es permanente y no se puede deshacer.")
+    st.warning("⚠️ Eliminar es permanente. Desactivar conserva el historial.")
 
     prod_map = {
         f"{r['nombre']} — {r['categoria']} (stock: {r['stock']})": r
         for _, r in df.iterrows()
     }
-    prod_sel = st.selectbox("Seleccionar producto a eliminar",
-                             list(prod_map.keys()), key="del_sel")
+    prod_sel = st.selectbox(
+        "Seleccionar producto",
+        list(prod_map.keys()), key="del_sel"
+    )
     prod = prod_map[prod_sel]
 
     st.markdown(
@@ -231,21 +233,73 @@ def _form_eliminar(conn, df):
     )
 
     confirmar = st.checkbox(
-        f"Confirmo que quiero eliminar **{prod['nombre']}** permanentemente",
+        f"Confirmo la acción sobre **{prod['nombre']}**",
         key="del_confirmar"
     )
+
     if confirmar:
-        if st.button("🗑️ Eliminar producto", use_container_width=True,
-                     key="btn_eliminar"):
+        # Dos botones lado a lado
+        c_desact, c_elim = st.columns(2)
+
+        # ── Botón desactivar ─────────────────────────────────────
+        if c_desact.button("🚫 Desactivar producto",
+                           use_container_width=True,
+                           key="btn_desactivar"):
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE PRODUCTOS SET activo = 0 WHERE id = %s",
+                (int(prod["id"]),)
+            )
+            conn.commit()
+            st.success(
+                f"🚫 '{prod['nombre']}' desactivado. "
+                "Ya no aparece en ventas ni inventario pero su historial se conserva."
+            )
+            st.rerun()
+
+        # ── Botón eliminar ───────────────────────────────────────
+        if c_elim.button("🗑️ Eliminar producto",
+                         use_container_width=True,
+                         key="btn_eliminar"):
             try:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "DELETE FROM PRODUCTOS WHERE id = %s", (int(prod["id"]),))
+                    "DELETE FROM PRODUCTOS WHERE id = %s",
+                    (int(prod["id"]),)
+                )
                 conn.commit()
-                st.success(f"✅ Producto '{prod['nombre']}' eliminado.")
+                st.success(f"✅ Producto '{prod['nombre']}' eliminado permanentemente.")
                 st.rerun()
             except Exception:
                 st.error(
-                    "❌ No se puede eliminar este producto porque tiene ventas o "
-                    "compras registradas. Puedes dejar el stock en 0 si ya no lo vendés."
+                    "❌ No se puede eliminar porque tiene ventas o compras registradas. "
+                    "Usa 'Desactivar' para ocultarlo sin perder el historial."
                 )
+
+    # ── Productos inactivos ──────────────────────────────────────
+    st.divider()
+    st.subheader("🔄 Productos inactivos")
+    conn2 = get_connection()
+    df_inactivos = pd.read_sql(
+        "SELECT id, nombre, categoria, stock FROM PRODUCTOS WHERE activo = 0 ORDER BY nombre",
+        conn2
+    )
+    if df_inactivos.empty:
+        st.info("No hay productos inactivos.")
+    else:
+        for _, row in df_inactivos.iterrows():
+            c_info, c_btn = st.columns([5, 2])
+            c_info.markdown(
+                f"**{row['nombre']}** — {row['categoria']}  |  stock: {row['stock']}"
+            )
+            if c_btn.button("✅ Reactivar", key=f"reactivar_{row['id']}",
+                            use_container_width=True):
+                cur2 = conn2.cursor()
+                cur2.execute(
+                    "UPDATE PRODUCTOS SET activo = 1 WHERE id = %s",
+                    (int(row["id"]),)
+                )
+                conn2.commit()
+                st.success(f"✅ '{row['nombre']}' reactivado.")
+                st.rerun()
+    conn2.close()
